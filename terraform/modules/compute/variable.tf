@@ -1,0 +1,16 @@
+variable "project_name" { type = string }
+variable "environment" { type = string }
+variable "region" { type = string }
+variable "vpc_id" { type = string }
+variable "public_subnet_ids" { type = list(string) }
+variable "private_subnet_ids" { type = list(string) }
+variable "app_sg_id" { description = "Security Group for EC2" }
+variable "alb_sg_id" { description = "Security Group for ALB" }
+variable "ami_id" { description = "Amazon Linux 2 AMI ID" }
+variable "instance_type" { default = "t3.micro" }
+variable "min_size" { default = 2 }
+variable "max_size" { default = 4 }
+variable "desired_capacity" { default = 2 }
+variable "ecr_repository_url" { type = string }
+variable "image_tag" { type = string }
+variable "container_port" { default = 8080 }

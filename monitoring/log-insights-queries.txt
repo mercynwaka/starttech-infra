@@ -1,0 +1,37 @@
+# =========
+=============================================
+# CloudWatch Logs Insights Cheat Sheet
+# Application Log Group: /aws/ec2/starttech-app
+# ======================================================
+
+# 1. Count Errors by Hour
+# Useful for identifying spikes in failures
+fields @timestamp, @message
+| filter @message like /Error/ or @message like /Exception/
+| stats count(*) as ErrorCount by bin(1h)
+| sort @timestamp desc
+
+# 2. Find Slowest API Requests (Latency)
+# Assuming logs are structured JSON: {"level": "info", "latency": 150, "path": "/api/users"}
+fields @timestamp, path, latency
+| filter ispresent(latency)
+| sort latency desc
+| limit 20
+
+# 3. Request Count by Status Code
+# Parsed from standard Apache/Nginx access logs or structured app logs
+fields @timestamp, statusCode
+| stats count(*) as RequestCount by statusCode
+| sort RequestCount desc
+
+# 4. Filter Logs by Specific Request ID
+# Useful for tracing a specific user transaction
+fields @timestamp, @message
+| filter @message like "req-12345-abcde"
+| sort @timestamp asc
+
+# 5. Live Stream of 500 Errors
+fields @timestamp, @message, path
+| filter statusCode >= 500
+| sort @timestamp desc
+| limit 100

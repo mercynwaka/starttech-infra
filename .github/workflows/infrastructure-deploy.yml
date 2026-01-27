@@ -1,0 +1,59 @@
+ name: Infrastructure Deploy
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  terraform:
+    name: Terraform
+    runs-on: ubuntu-latest
+    
+    # Set the working directory if your Terraform files are in a subfolder (e.g., ./terraform)
+    # defaults:
+    #   run:
+    #     working-directory: ./terraform
+
+    env:
+      # Credentials pulled from GitHub Secrets
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      # Optional: Define region here or in your provider block
+      AWS_REGION: us-east-1 
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "latest"
+
+      - name: Terraform Init
+        id: init
+        run: terraform init
+
+      - name: Terraform Format
+        id: fmt
+        run: terraform fmt -check
+        # The -check flag will cause the step to fail if files are not formatted correctly
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -no-color
+        # logic: Runs on PRs and Main to preview changes before applying
+
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: terraform apply -auto-approve
+        # logic: Only runs on 'main' branch pushes. -auto-approve skips the "yes" prompt.

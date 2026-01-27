@@ -1,0 +1,11 @@
+resource "aws_cloudfront_origin_access_control" "default" {
+  name                              = "s3-oac"
+  description                       = "OAC for S3 bucket"
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+
+data "aws_s3_bucket" "origin" {
+  bucket = "my-existing-bucket-name"
+}

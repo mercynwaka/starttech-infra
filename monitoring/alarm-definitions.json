@@ -1,0 +1,47 @@
+[
+  {
+    "AlarmName": "StartTech-Backend-HighCPU",
+    "AlarmDescription": "Triggered when average CPU across ASG exceeds 80% for 10 minutes",
+    "MetricName": "CPUUtilization",
+    "Namespace": "AWS/EC2",
+    "Statistic": "Average",
+    "Dimensions": [
+      { "Name": "AutoScalingGroupName", "Value": "starttech-prod-asg" }
+    ],
+    "Period": 300,
+    "EvaluationPeriods": 2,
+    "Threshold": 80,
+    "ComparisonOperator": "GreaterThanThreshold",
+    "TreatMissingData": "notBreaching"
+  },
+  {
+    "AlarmName": "StartTech-ALB-High5xxErrors",
+    "AlarmDescription": "Triggered when 5XX error rate exceeds 10 in 5 minutes",
+    "MetricName": "HTTPCode_Target_5XX_Count",
+    "Namespace": "AWS/ApplicationELB",
+    "Statistic": "Sum",
+    "Dimensions": [
+      { "Name": "LoadBalancer", "Value": "app/starttech-alb/1234567890" } 
+    ],
+    "Period": 300,
+    "EvaluationPeriods": 1,
+    "Threshold": 10,
+    "ComparisonOperator": "GreaterThanThreshold",
+    "TreatMissingData": "notBreaching"
+  },
+  {
+    "AlarmName": "StartTech-Redis-HighEvictions",
+    "AlarmDescription": "Warning: Redis is running out of memory and evicting keys",
+    "MetricName": "Evictions",
+    "Namespace": "AWS/ElastiCache",
+    "Statistic": "Sum",
+    "Dimensions": [
+      { "Name": "CacheClusterId", "Value": "starttech-redis" }
+    ],
+    "Period": 300,
+    "EvaluationPeriods": 1,
+    "Threshold": 0,
+    "ComparisonOperator": "GreaterThanThreshold",
+    "TreatMissingData": "notBreaching"
+  }
+]
