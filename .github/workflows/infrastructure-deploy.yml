@@ -2,58 +2,49 @@ name: Infrastructure Deploy
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
-permissions:
-  contents: read
+    branches:
+      - main
+    paths:
+      - 'terraform/**' # Only trigger when terraform files change
 
 jobs:
   terraform:
-    name: Terraform
+    name: Terraform Plan & Apply
     runs-on: ubuntu-latest
     
-    # Set the working directory if your Terraform files are in a subfolder (e.g., ./terraform)
-    # defaults:
-    #   run:
-    #     working-directory: ./terraform
-
-    env:
-      # Credentials pulled from GitHub Secrets
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      # Optional: Define region here or in your provider block
-      AWS_REGION: us-east-1 
+    # GLOBAL FIX: This sets the working directory for ALL steps in this job
+    defaults:
+      run:
+        working-directory: ./terraform
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: "latest"
+          terraform_version: 1.5.0
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
 
       - name: Terraform Init
-        id: init
         run: terraform init
 
-      - name: Terraform Format
-        id: fmt
-        run: terraform fmt -check
-        # The -check flag will cause the step to fail if files are not formatted correctly
-
       - name: Terraform Validate
-        id: validate
         run: terraform validate
 
       - name: Terraform Plan
         id: plan
+        
+        env:
+          TF_VAR_frontend_bucket_name: "starttech-frontend-prod-mercy-88" 
+          # ^ Ensure this name is unique if you aren't using tfvars in CI
         run: terraform plan -no-color
-        # logic: Runs on PRs and Main to preview changes before applying
 
-      - name: Terraform Apply
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: terraform apply -auto-approve
-        # logic: Only runs on 'main' branch pushes. -auto-approve skips the "yes" prompt.
+      

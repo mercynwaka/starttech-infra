@@ -1,74 +1,65 @@
 {
-    "widgets": [
-        {
-            "type": "metric",
-            "x": 0,
-            "y": 0,
-            "width": 12,
-            "height": 6,
-            "properties": {
-                "metrics": [
-                    [ "AWS/ApplicationELB", "RequestCount", "LoadBalancer", "${alb_arn_suffix}", { "stat": "Sum", "period": 300 } ],
-                    [ ".", "HTTPCode_Target_4XX_Count", ".", ".", { "stat": "Sum", "period": 300 } ],
-                    [ ".", "HTTPCode_Target_5XX_Count", ".", ".", { "stat": "Sum", "period": 300 } ]
-                ],
-                "view": "timeSeries",
-                "stacked": false,
-                "region": "us-east-1",
-                "title": "ALB Traffic & Errors"
-            }
-        },
-        {
-            "type": "metric",
-            "x": 12,
-            "y": 0,
-            "width": 12,
-            "height": 6,
-            "properties": {
-                "metrics": [
-                    [ "AWS/EC2", "CPUUtilization", "AutoScalingGroupName", "${asg_name}", { "stat": "Average", "period": 300 } ]
-                ],
-                "view": "timeSeries",
-                "stacked": false,
-                "region": "us-east-1",
-                "title": "Backend CPU Utilization (ASG Avg)",
-                "yAxis": {
-                    "left": {
-                        "min": 0,
-                        "max": 100
-                    }
-                }
-            }
-        },
-        {
-            "type": "metric",
-            "x": 0,
-            "y": 6,
-            "width": 12,
-            "height": 6,
-            "properties": {
-                "metrics": [
-                    [ "AWS/ElastiCache", "CPUUtilization", "CacheClusterId", "${redis_cluster_id}", { "stat": "Average", "period": 300 } ],
-                    [ ".", "CurrConnections", ".", ".", { "stat": "Average", "period": 300 } ]
-                ],
-                "view": "timeSeries",
-                "stacked": false,
-                "region": "us-east-1",
-                "title": "Redis Performance"
-            }
-        },
-        {
-            "type": "log",
-            "x": 12,
-            "y": 6,
-            "width": 12,
-            "height": 6,
-            "properties": {
-                "query": "SOURCE '${log_group_name}' | fields @timestamp, @message | filter @message like /Error/ | sort @timestamp desc | limit 20",
-                "region": "us-east-1",
-                "title": "Recent Application Errors",
-                "view": "table"
-            }
-        }
-    ]
+  "widgets": [
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 0,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "AWS/EC2", "CPUUtilization", "AutoScalingGroupName", "${environment}-asg", { "label": "Backend CPU" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "${region}",
+        "title": "Backend CPU Utilization",
+        "period": 300
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12,
+      "y": 0,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "AWS/ApplicationELB", "RequestCount", "LoadBalancer", "app/${environment}-alb", { "label": "Total Requests" } ]
+        ],
+        "view": "timeSeries",
+        "region": "${region}",
+        "title": "Traffic",
+        "period": 300
+      }
+    },
+    {
+      "type": "log",
+      "x": 0,
+      "y": 6,
+      "width": 24,
+      "height": 6,
+      "properties": {
+        "query": "SOURCE '${log_group_name}' | fields @timestamp, @message | sort @timestamp desc | limit 20",
+        "region": "${region}",
+        "title": "Recent Application Logs",
+        "view": "table"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 12,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "AWS/S3", "BucketSizeBytes", "BucketName", "${bucket_name}", "StorageType", "StandardStorage", { "period": 86400 } ]
+        ],
+        "view": "singleValue",
+        "region": "${region}",
+        "title": "Frontend S3 Bucket Size"
+      }
+    }
+  ]
 }
