@@ -44,7 +44,7 @@ jobs:
         id: plan
         
         env:
-          TF_VAR_frontend_bucket_name: "starttech-frontend-prod-mercy-88" 
+          TF_VAR_frontend_bucket_name: ${{ secrets.TF_VAR_FRONTEND_BUCKET_NAME }} 
           # ^ Ensure this name is unique if you aren't using tfvars in CI
         run: terraform plan -no-color
 
