@@ -1,9 +1,0 @@
-resource "aws_cloudwatch_log_group" "app_logs" {
-  name              = "/aws/app/my-app-name"
-  retention_in_days = 30 # Set retention to avoid infinite storage costs
-
-  tags = {
-    Environment = "production"
-    Application = "my-app"
-  }
-}

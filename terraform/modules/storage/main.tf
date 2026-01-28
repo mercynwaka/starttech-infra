@@ -1,29 +1,20 @@
-# S3: Static Website Bucket
 
-resource "aws_s3_bucket" "static_site" {
-  bucket        = var.project_name
-  force_destroy = true # Allows destroying bucket even if it contains objects
+
+# --- S3 Bucket ---
+resource "aws_s3_bucket" "frontend" {
+  bucket        = var.bucket_name
+  force_destroy = true
 
   tags = {
-    Name = "${var.project_name}-s3-site"
+    
+    Name        = "${var.environment}-frontend"
+    Environment = var.environment
   }
 }
 
-resource "aws_s3_bucket_website_configuration" "static_site" {
-  bucket = aws_s3_bucket.static_site.id
-
-  index_document {
-    suffix = "index.html"
-  }
-
-  error_document {
-    key = "error.html"
-  }
-}
-
-# Blocks public access (CloudFront will access via Policy)
-resource "aws_s3_bucket_public_access_block" "static_site" {
-  bucket = aws_s3_bucket.static_site.id
+# --- Block Public Access ---
+resource "aws_s3_bucket_public_access_block" "frontend" {
+  bucket = aws_s3_bucket.frontend.id
 
   block_public_acls       = true
   block_public_policy     = true
@@ -31,9 +22,78 @@ resource "aws_s3_bucket_public_access_block" "static_site" {
   restrict_public_buckets = true
 }
 
-# Bucket Policy allowing CloudFront OAC Access
+# --- OAC for CloudFront ---
+resource "aws_cloudfront_origin_access_control" "frontend" {
+  name                              = "${var.environment}-oac"
+  description                       = "OAC for React App"
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+
+# --- CloudFront Distribution ---
+resource "aws_cloudfront_distribution" "frontend" {
+  enabled             = true
+  is_ipv6_enabled     = true
+  default_root_object = "index.html"
+
+  origin {
+    domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
+    origin_id                = "S3-${aws_s3_bucket.frontend.id}"
+    origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
+  }
+
+  default_cache_behavior {
+    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
+    cached_methods   = ["GET", "HEAD"]
+    target_origin_id = "S3-${aws_s3_bucket.frontend.id}"
+
+    forwarded_values {
+      query_string = false
+      cookies {
+        forward = "none"
+      }
+    }
+
+    viewer_protocol_policy = "redirect-to-https"
+    min_ttl                = 0
+    default_ttl            = 3600
+    max_ttl                = 86400
+  }
+
+  # SPA Routing Fix (Redirect 403/404 to index.html)
+  custom_error_response {
+    error_code            = 403
+    response_code         = 200
+    response_page_path    = "/index.html"
+    error_caching_min_ttl = 10
+  }
+  
+  custom_error_response {
+    error_code            = 404
+    response_code         = 200
+    response_page_path    = "/index.html"
+    error_caching_min_ttl = 10
+  }
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+
+  viewer_certificate {
+    cloudfront_default_certificate = true
+  }
+  
+  tags = {
+    Environment = var.environment
+  }
+}
+
+# --- Bucket Policy ---
 resource "aws_s3_bucket_policy" "allow_cloudfront" {
-  bucket = aws_s3_bucket.static_site.id
+  bucket = aws_s3_bucket.frontend.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -43,11 +103,11 @@ resource "aws_s3_bucket_policy" "allow_cloudfront" {
         Principal = {
           Service = "cloudfront.amazonaws.com"
         }
-        Action    = "s3:GetObject"
-        Resource  = "${aws_s3_bucket.static_site.arn}/*"
+        Action   = "s3:GetObject"
+        Resource = "${aws_s3_bucket.frontend.arn}/*"
         Condition = {
           StringEquals = {
-            "AWS:SourceArn" = var.cloudfront_distribution_arn
+            "AWS:SourceArn" = aws_cloudfront_distribution.frontend.arn
           }
         }
       }
@@ -55,49 +115,35 @@ resource "aws_s3_bucket_policy" "allow_cloudfront" {
   })
 }
 
-# Redis: ElastiCache Replication Group
-
-resource "aws_elasticache_subnet_group" "redis_subnet_group" {
-  name       = "${var.project_name}-redis-subnet-group"
-  subnet_ids = var.private_subnet_ids
-
-  tags = {
-    Name = "${var.project_name}-redis-subnet-group"
-  }
-}
-
-resource "aws_elasticache_replication_group" "redis" {
-  replication_group_id       = "${var.project_name}-redis"
-  description                = "Redis replication group for ${var.project_name}"
-  node_type                  = "cache.t3.micro" # Adjust instance size as needed
-  num_cache_clusters         = 2                # 1 Primary + 1 Replica
-  parameter_group_name       = "default.redis7"
-  port                       = 6379
-  automatic_failover_enabled = true
-  multi_az_enabled           = true
-  subnet_group_name          = aws_elasticache_subnet_group.redis_subnet_group.name
-  security_group_ids         = [var.redis_security_group_id]
-
-  # Encryption (Recommended for prod)
-  at_rest_encryption_enabled = true
-  transit_encryption_enabled = true
-  
-  tags = {
-    Name = "${var.project_name}-redis"
-  }
-}
-
-# ECR: Docker Repository
-
+# --- ECR Repository ---
 resource "aws_ecr_repository" "app_repo" {
-  name                 = "${var.project_name}-repo"
+  name                 = "${var.environment}-backend-repo"
   image_tag_mutability = "MUTABLE"
 
   image_scanning_configuration {
     scan_on_push = true
   }
-
+  
   tags = {
-    Name = "${var.project_name}-ecr"
+    Name = "${var.environment}-ecr"
   }
+}
+
+# --- Redis Cluster ---
+resource "aws_elasticache_subnet_group" "redis" {
+  name       = "${var.environment}-redis-subnet-group"
+  subnet_ids = var.private_subnet_ids
+}
+
+resource "aws_elasticache_replication_group" "redis" {
+  replication_group_id       = "${var.environment}-redis"
+  description                = "Redis cluster for ${var.environment}"
+  node_type                  = "cache.t3.micro"
+  port                       = 6379
+  parameter_group_name       = "default.redis7"
+  automatic_failover_enabled = false
+  num_node_groups            = 1
+  replicas_per_node_group    = 0
+  subnet_group_name          = aws_elasticache_subnet_group.redis.name
+  security_group_ids         = [var.redis_sg_id]
 }

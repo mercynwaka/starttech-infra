@@ -1,19 +1,24 @@
- variable "project_name" {
-  description = "The project name, used for naming resources and the S3 bucket"
+variable "environment" {
+  description = "The deployment environment"
+  type        = string
+}
+
+variable "bucket_name" {
+  description = "Name for the frontend S3 bucket"
+  type        = string
+}
+
+variable "vpc_id" {
+  description = "VPC ID for Redis"
   type        = string
 }
 
 variable "private_subnet_ids" {
-  description = "List of private subnet IDs for Redis placement"
+  description = "Subnet IDs for Redis"
   type        = list(string)
 }
 
-variable "redis_security_group_id" {
-  description = "Security Group ID allowing access to Redis (port 6379)"
-  type        = string
-}
-
-variable "cloudfront_distribution_arn" {
-  description = "The ARN of the CloudFront distribution (for S3 bucket policy)"
+variable "redis_sg_id" {
+  description = "Security Group ID for Redis"
   type        = string
 }

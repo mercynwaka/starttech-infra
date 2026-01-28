@@ -28,12 +28,4 @@ variable "availability_zones" {
 }
 
 
-variable "vpc_id" {
-  description = "The ID of the VPC where security groups will be created"
-  type        = string
-}
 
-variable "environment" {
-  description = "The environment name (e.g., prod)"
-  type        = string
-}
