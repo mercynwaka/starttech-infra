@@ -48,4 +48,8 @@ jobs:
           # ^ Ensure this name is unique if you aren't using tfvars in CI
         run: terraform plan -no-color
 
-      
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          TF_VAR_frontend_bucket_name: ${{ secrets.TF_VAR_FRONTEND_BUCKET_NAME }}
+        run: terraform apply -auto-approve -no-color      
