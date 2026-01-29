@@ -35,10 +35,30 @@ resource "aws_lb_listener" "http" {
   }
 }
 
+
+    
+# 1. Find the latest Amazon Linux 2023 AMI 
+data "aws_ami" "amazon_linux" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-2023.*-x86_64"] # Filter for Amazon Linux 2023
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+}
+
 # --- Launch Template ---
 resource "aws_launch_template" "app" {
   name_prefix   = "${var.environment}-tpl"
-  image_id      = var.ami_id
+  
+  # Use the Amazon Linux AMI ID found above
+  image_id      = data.aws_ami.amazon_linux.id
   instance_type = "t3.micro"
 
   iam_instance_profile {
@@ -47,40 +67,35 @@ resource "aws_launch_template" "app" {
 
   vpc_security_group_ids = [var.app_sg_id]
 
+  # USER DATA FOR AMAZON LINUX (yum works here!)
   user_data = base64encode(<<-EOF
     #!/bin/bash
     echo "Starting User Data..."
 
-    # 1. Update and Install Dependencies
+    # 1. Update and Install Docker
     yum update -y
-    yum install -y docker amazon-cloudwatch-agent
+    yum install -y docker
 
     # 2. Start Docker
     service docker start
+    systemctl enable docker
     usermod -a -G docker ec2-user
 
-    # 3. Authenticate to ECR 
-    # (We inject Terraform variables directly here)
+    # 3. Authenticate to ECR
+    
     aws ecr get-login-password --region ${var.region} | docker login --username AWS --password-stdin ${var.ecr_repository_url}
 
     # 4. Pull and Run Container
     docker pull ${var.ecr_repository_url}:${var.image_tag}
 
-    # Run container mapping port 80 to the app port
     docker run -d -p 80:${var.app_port} \
       --restart always \
       --name app \
       --log-driver=awslogs \
       --log-opt awslogs-region=${var.region} \
       --log-opt awslogs-group=/aws/ec2/backend-app \
+      --log-opt awslogs-create-group=true \
       ${var.ecr_repository_url}:${var.image_tag}
-
-    # 5. Start CloudWatch Agent
-    /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
-      -a fetch-config \
-      -m ec2 \
-      -c ssm:AmazonCloudWatch-Config \
-      -s
 
     echo "User Data Complete."
   EOF
@@ -93,6 +108,7 @@ resource "aws_launch_template" "app" {
     }
   }
 }
+    
 
 # --- Auto Scaling Group ---
 resource "aws_autoscaling_group" "app" {
